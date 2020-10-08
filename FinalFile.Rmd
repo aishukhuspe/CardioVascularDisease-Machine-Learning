@@ -1,0 +1,718 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+Data Preprocessing.
+
+Libraries:
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(corrplot)
+library(PerformanceAnalytics)
+```
+
+
+Import dataset:
+```{r}
+cardio <- read.csv("cardio_train.csv", sep = ";" )
+```
+
+Let's look at our dataset for exploration
+
+```{r}
+head(cardio)
+```
+
+```{r}
+summary(cardio)
+```
+Analysis of our variables :
+
+Going by the information from head() and summary() we can see that all of our variables have numerical values but given by the description, variables like cholesterol and gluc are categorical, and gender, smoke, alco, active, cardio are binary in nature.
+
+Here age is counted in number of days.
+Gender has two values, 1 and 2. 1 - women and 2 - men.
+Height is in cms.
+weight is in kgs.
+ap_hi and ap_low are systolic and diastolic blood pressure values.
+Cholestrol has 3 values:
+  1 : normal
+  2 : above normal
+  3 : well above normal
+gluc stands for level of glucose:
+  1: normal
+  2: above normal
+  3: well above normal
+Smoke is binary, if a person smokes value is 1.
+Similarly alco stands for alcohol consumption, and active stands for physical activity, they are both binary in nature.
+Cardio is the target variable that tells us whether the person has cardiovascular disease or not. Value is 1 if the person has cvd.
+
+Looking for missing values:
+
+```{r}
+any(is.na(cardio))
+```
+
+Our dataset has no missing values.
+
+Looking for inaccuracies / inconsistency throughout the dataset:
+
+Let's create a duplicate dataset:
+```{r}
+cardio_Dup <- cardio
+```
+
+Firstly, diastolic blood pressure cannot be higher than systolic pressure. 
+
+```{r}
+cardio_Dup <- subset(cardio_Dup, ap_hi > ap_lo)
+```
+
+Also, the dataset cannot have negative or 0 measurements for blood pressure. Since 0 means no blood is being pumped.
+
+```{r}
+cardio_Dup <- subset(cardio_Dup, ap_hi > 0 & ap_lo >0)
+```
+
+We cannot have systolic pressure more than 300 
+
+```{r}
+cardio_Dup <- subset(cardio_Dup, ap_hi < 300)
+```
+
+
+We cannot decide on the lower values of blood pressure, since we lack domain knowledge.
+
+Let's find the minimum age in our dataset:
+We divide our variable by 365 since our age here is given in number of days.
+```{r}
+cardio_Dup$age <- cardio_Dup$age/365
+summary(cardio_Dup$age)
+```
+
+Our minimum age recorded here is 29.58 years old.
+
+We remove any weight recorded less than 30 kgs.
+```{r}
+cardio_Dup <- subset(cardio_Dup, weight > 30)
+
+```
+
+
+```{r}
+summary(cardio_Dup$weight)
+```
+
+For height we remove any height less than 100 cms
+
+```{r}
+cardio_Dup <- subset(cardio_Dup, height > 120)
+```
+
+Hence we are done cleaning and removing inconsistencies from our dataset.
+
+Multivariate Analysis:
+
+```{r}
+cormat <- cor(cardio_Dup[,])
+corrplot(cormat, diag = FALSE, method = "number")
+```
+By looking at the above correlation matrix, we can see that systolic blood pressure and diastolic blood pressure is weakley correlated with our target variable cardio. Cholesterol and age also have some impact on the target variable.
+Cholesterol and glucose levels as have a moderate correlation.
+
+We also create a new variable in our duplicated dataset called Body Mass Index. BMI helps us understand if a person is overweight or underweight.
+
+```{r}
+cardio_Dup$bmi <- cardio_Dup$weight/((cardio_Dup$height/100)^2)
+
+```
+
+Let's see correlation between bmi and cardio
+
+```{r}
+cor(cardio_Dup$bmi, cardio_Dup$cardio)
+```
+
+
+Visualizations:
+
+
+"_________________________________________________________________________________________________"
+Here, Cardio Positive cases are taken into accounts while analysis.
+"_________________________________________________________________________________________________"
+
+
+barplot of cardio to see how many patients have cvd, group by their gender. with count mentioned on the bars
+
+```{r}
+ggplot(cardio_Dup, aes(x = as.factor(cardio), fill = as.factor(gender))) + geom_bar(stat = "count", position = position_dodge()) + geom_text(aes(label = ..count..), stat = "count", position = position_dodge(width = 1), vjust = -0.7)
+```
+As we can see, our target variable is almost equally distributed across the genders. 
+
+
+
+"barplot of cardio wrt alcohol grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = as.factor(cardio), fill = as.factor(alco))) + geom_bar(stat = "count", position = position_dodge()) + geom_text(aes(label = ..count..), stat = "count", position = position_dodge(width = 1), vjust = -0.7) + facet_grid(.~gender)
+```
+Considering the female and male population seperately.
+No analysis can be made here, if cardiovascular diseases depend on alcohol.
+
+
+
+"barplot of cardio wrt active grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = as.factor(cardio), fill = as.factor(active))) + geom_bar(stat = "count", position = position_dodge()) + geom_text(aes(label = ..count..), stat = "count", position = position_dodge(width = 1), vjust = -0.7) + facet_grid(.~gender)
+```
+In both the population, people who are actively excercising are seen to have cardio diseases. No assumptions can be made here regarding positive effects of exercising  on cardiovascular diseases.
+
+
+
+"barplot of cardio wrt smoke grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = as.factor(cardio), fill = as.factor(smoke))) + geom_bar(stat = "count", position = position_dodge()) + geom_text(aes(label = ..count..), stat = "count", position = position_dodge(width = 1), vjust = -0.7) + facet_grid(.~gender)
+```
+Female population is seem to smoke more than male population in this dataset. But the ratio of cardio positive and smokers is high in male population. 
+Though female smoker population is more but male population shows higher cardio diseases.
+
+
+
+"barplot of cardio wrt glucose grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = as.factor(cardio), fill = as.factor(gluc))) + geom_bar(stat = "count", position = position_dodge()) + geom_text(aes(label = ..count..), stat = "count", position = position_dodge(width = 1), vjust = -0.7) + facet_grid(.~gender)
+```
+Population with normal glucose level shows higher cases of cardio diseases when compared to the group with high and very high glucose levels.
+
+
+
+"barplot of cardio wrt cholestrol grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = as.factor(cardio), fill = as.factor(cholesterol))) + geom_bar(stat = "count", position = position_dodge()) + geom_text(aes(label = ..count..), stat = "count", position = position_dodge(width = 1), vjust = -0.7) + facet_grid(.~gender)
+```
+Females tend to show higher cholestrol levels than males. Also, the ratio of high cholestrol and cardio diseases count is higher in female population.
+Looking into cardio positive class, people with normal cholestrol too have cardio diseases in abundance when compared to those with high and very high cholestrol levels.
+
+
+
+"barplot of cardio wrt high blood pressure grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = ap_hi)) + geom_histogram(binwidth = 10, aes(fill = as.factor(cardio)), position = "dodge") + facet_grid(.~gender)
+
+```
+Both genders shows right skewness in the data. People with high blood pressures are shown to have cardio diseases.
+
+
+"barplot of cardio wrt low blood pressure grouped by gender"
+```{r}
+ggplot(cardio_Dup, aes(x = ap_lo)) + geom_histogram(binwidth = 10, aes(fill = as.factor(cardio)), position = "dodge") + facet_grid(.~gender) + geom_density(alpha=0.3, fill= "black")
+```
+Both genders show a left skewness in the distribution. People with low blood pressure are shown to have cardio diseases.
+
+
+"boxplot of BMI wrt gender grouped by cardio"
+```{r}
+ggplot(cardio_Dup, aes(x=as.factor(gender), y=cardio_Dup$bmi)) + 
+    geom_boxplot(aes(fill=as.factor(cardio),position= "dodge"))
+```
+BMI of people with cardio positive is higher than that of cardio negative people.
+Population with higher BMI has higher chances of cardio diseases.
+This can be verified in the different cases shown below.
+
+
+"boxplot of BMI wrt gender grouped by cardio facetgrid by alcohol"
+```{r}
+ggplot(cardio_Dup, aes(x=as.factor(gender), y=cardio_Dup$bmi)) + 
+    geom_boxplot(aes(fill=as.factor(cardio),position= "dodge"))+ facet_wrap(~alco)
+```
+
+
+"boxplot of BMI wrt gender grouped by cardio facetgrid by cholesterol"
+```{r}
+ggplot(cardio_Dup, aes(x=as.factor(gender), y=cardio_Dup$bmi)) + 
+    geom_boxplot(aes(fill=as.factor(cardio),position= "dodge"))+ facet_wrap(~cholesterol)
+```
+
+
+"boxplot of BMI wrt gender grouped by cardio facetgrid by active"
+```{r}
+ggplot(cardio_Dup, aes(x=as.factor(gender), y=cardio_Dup$bmi)) + 
+    geom_boxplot(aes(fill=as.factor(cardio),position= "dodge"))+ facet_wrap(~active)
+```
+
+
+"boxplot of BMI wrt gender grouped by cardio facetgrid by glucose"
+```{r}
+ggplot(cardio_Dup, aes(x=as.factor(gender), y=cardio_Dup$bmi)) + 
+    geom_boxplot(aes(fill=as.factor(cardio),position= "dodge"))+ facet_wrap(~gluc)
+```
+
+People whether or not consuming alcohol, with higher BMI are more in number than with lower BMI with cardio diseases.
+In all the groups of cholesterol level, people with higher BMI are more in number than with lower BMI with cardio diseases.
+
+
+
+
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+CLASSIFICATION TREE
+
+```{r}
+cardio_train <- read.csv("Train_Set.csv")
+cardio_valid <- read.csv("Test_Set.csv")
+
+
+for( i in 1:nrow(cardio_valid)){
+  if(cardio_valid$gender[i]== 1)cardio_valid$gender[i] = "F"
+  if(cardio_valid$gender[i]== 2)cardio_valid$gender[i] = "M"
+}
+cardio_valid$gender <- as.factor(cardio_valid$gender)
+cardio_valid$cholesterol <- factor(cardio_valid$cholesterol, ordered = TRUE)
+cardio_valid$gluc <- factor(cardio_valid$gluc, ordered = TRUE)
+cardio_valid$smoke <- as.factor(cardio_valid$smoke)
+cardio_valid$alco <- as.factor(cardio_valid$alco)
+cardio_valid$active <- as.factor(cardio_valid$active)
+cardio_valid$cardio <- as.factor(cardio_valid$cardio)
+
+for( i in 1:nrow(cardio_train)){
+  if(cardio_train$gender[i]== 1)cardio_train$gender[i] = "F"
+  if(cardio_train$gender[i]== 2)cardio_train$gender[i] = "M"
+}
+cardio_train$gender <- as.factor(cardio_train$gender)
+cardio_train$cholesterol <- factor(cardio_train$cholesterol, ordered = TRUE)
+cardio_train$gluc <- factor(cardio_train$gluc, ordered = TRUE)
+cardio_train$smoke <- as.factor(cardio_train$smoke)
+cardio_train$alco <- as.factor(cardio_train$alco)
+cardio_train$active <- as.factor(cardio_train$active)
+cardio_train$cardio <- as.factor(cardio_train$cardio)
+
+cardio_train$X <- NULL
+cardio_valid$X <- NULL
+```
+
+Creating basic Classification Tree on our dataset
+
+```{r}
+library(rpart)
+library(rpart.plot)
+library(caret)
+```
+
+
+```{r}
+set.seed(1)
+cardio.basic.ct <- rpart(cardio ~ ., data = cardio_train, method = "class")
+
+#plot tree
+prp(cardio.basic.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10, digits = 22)
+```
+The first rule we get from a default classification tree is 
+IF ap_hi < 130 THEN class = 0
+Which translates to if your Systolic blood pressure is less than 130, you don't have cardiovascular disease.
+
+Let's check it's performance on validation set
+
+```{r}
+perf.basic.ct <- predict(cardio.basic.ct, newdata = cardio_valid, type = "class")
+
+#confusion matrix
+confusionMatrix(perf.basic.ct, cardio_valid$cardio, positive = "1")
+```
+
+
+Accuracy: 71.22%
+Positive Predictive value: 75.54%
+Sensitivity: 61.56%
+
+Now let's grow a very deep tree with minsplit = 1 and check it's performance
+
+```{r}
+set.seed(2)
+deep.ct.1 <- rpart(cardio~., data = cardio_train, method = "class", cp = 0, minsplit = 1)
+perf.deep.ct.1 <- predict(deep.ct.1, newdata = cardio_valid, type = "class")
+
+#confusion matrix
+confusionMatrix(perf.deep.ct.1, cardio_valid$cardio, positive = "1")
+```
+
+Accuracy: 64.72%
+PPV: 64.54%
+Sensitivity: 63.18%
+
+Let's prune this deep tree to lowest cp and check performance:
+```{r}
+set.seed(3)
+pruned.low.dt.1 <- prune(deep.ct.1, cp = deep.ct.1$cptable[which.min(deep.ct.1$cptable[,"xerror"]),"CP"])
+perf.low.dt.1 <- predict(pruned.low.dt.1, newdata = cardio_valid, type = "class")
+perf.train.low.dt.1 <- predict(pruned.low.dt.1, cardio_train, type = "class")
+confusionMatrix(perf.train.low.dt.1, cardio_train$cardio, positive = "1")
+
+confusionMatrix(perf.low.dt.1, cardio_valid$cardio, positive = "1")
+```
+
+
+Accuracy: 73.51%
+PPV: 75.17%
+Sensitivity: 69.11%
+
+Now let's prune more by going up to the best tree.
+```{r}
+printcp(deep.ct.1)
+
+```
+
+```{r}
+deep.ct.1$cptable[which.min(deep.ct.1$cptable[,"xerror"]),"CP"]
+```
+
+
+Tree 29, xerror + xtsd = 0.54009 + 0.0040770 = 0.544167
+
+Tree 27 is the closest with xerror = 0.54294
+
+```{r}
+set.seed(4)
+pruned.best.dt.1 <- prune(deep.ct.1, cp = 2.3111e-04)
+perf.bestpruned.dt.1 <- predict(pruned.best.dt.1, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.bestpruned.dt.1, cardio_valid$cardio, positive = "1")
+```
+
+Accuracy: 73.62%
+PPV : 75.32%
+Sensitivity: 69.18%
+---
+
+Now let's grow a very deep tree with minsplit = 100 and check it's performance
+
+```{r}
+set.seed(5)
+deep.ct.2 <- rpart(cardio~., data = cardio_train, method = "class", cp = 0, minsplit = 100)
+perf.deep.ct.2 <- predict(deep.ct.2, newdata = cardio_valid, type = "class")
+perf.train.deep.ct.2 <- predict(deep.ct.2, newdata = cardio_train, type = "class")
+confusionMatrix(perf.train.deep.ct.2, cardio_train$cardio, positive = "1")
+#confusion matrix
+confusionMatrix(perf.deep.ct.2, cardio_valid$cardio, positive = "1")
+```
+
+Accuracy: 72.52%
+PPV: 73.50%
+Sensitivity: 69.22% 
+
+Pruning this tree by lowest cp 
+
+```{r}
+set.seed(6)
+pruned.low.dt.2 <- prune(deep.ct.2, cp = deep.ct.2$cptable[which.min(deep.ct.2$cptable[,"xerror"]),"CP"])
+perf.low.dt.2 <- predict(pruned.low.dt.2, newdata = cardio_valid, type = "class")
+perf.train.low.dt.2 <- predict(pruned.low.dt.2, newdata = cardio_train, type = "class")
+confusionMatrix(perf.train.low.dt.2, cardio_train$cardio, positive = "1")
+confusionMatrix(perf.low.dt.2, cardio_valid$cardio, positive = "1")
+```
+
+Accuracy : 73.69%
+PPV: 74.87%
+Sensitivity: 70.22%
+
+
+
+Now pruning the deep tree 2 with best tree
+```{r}
+printcp(deep.ct.2)
+```
+
+```{r}
+deep.ct.2$cptable[which.min(deep.ct.2$cptable[,"xerror"]),"CP"]
+```
+
+Tree 18 is the tree with lowest xerror,  xerror + xstd = 0.54286 0.0040836 = 0.5469436
+Tree 16 falls within this range with xerror = 0.54551
+
+Using this tree to get best tree
+```{r}
+set.seed(7)
+pruned.best.dt.2 <- prune(deep.ct.2, cp = 5.4626e-04)
+perf.bestpruned.dt.2 <- predict(pruned.best.dt.2, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.bestpruned.dt.2, cardio_valid$cardio, positive = "1")
+```
+
+Accuracy : 73.67%
+PPV : 74.94%
+Sensitivity: 70.01%
+---
+
+Now let's grow a very deep tree with minsplit = 500 and check it's performance
+
+```{r}
+set.seed(8)
+deep.ct.3 <- rpart(cardio~., data = cardio_train, method = "class", cp = 0, minsplit = 500)
+perf.deep.ct.3 <- predict(deep.ct.3, newdata = cardio_valid, type = "class")
+
+#confusion matrix
+confusionMatrix(perf.deep.ct.3, cardio_valid$cardio, positive = "1")
+```
+
+Accuracy: 73.55%
+PPV: 75.06%
+Sensitivity: 69.41%
+
+Pruning this tree by lowest cp 
+
+```{r}
+set.seed(9)
+pruned.low.dt.3 <- prune(deep.ct.3, cp = deep.ct.3$cptable[which.min(deep.ct.3$cptable[,"xerror"]),"CP"])
+perf.low.dt.3 <- predict(pruned.low.dt.3, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.low.dt.3, cardio_valid$cardio, positive = "1")
+
+
+```
+
+Accuracy: 73.56%
+PPV : 75.31%
+Sensitivty: 69.01%
+
+Going up this tree to the best tree
+
+```{r}
+printcp(deep.ct.3)
+```
+
+```{r}
+deep.ct.3$cptable[which.min(deep.ct.3$cptable[,"xerror"]),"CP"]
+```
+
+Tree 12 is with the lowest xerror, xerror + xstd = 0.54652 + 0.0040922 = 0.5506122
+
+Tree 9 comes in this range with xerror = 0.54992
+
+Using this tree to get best tree
+```{r}
+set.seed(10)
+pruned.best.dt.3 <- prune(deep.ct.3, cp = 0.00091394)
+perf.bestpruned.dt.3 <- predict(pruned.best.dt.3, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.bestpruned.dt.3, cardio_valid$cardio, positive = "1")
+```
+Accuracy : 73.53%
+PPV: 75.63%
+Sensitivity: 68.33%
+---
+
+```{r}
+set.seed(11)
+deep.ct.4 <- rpart(cardio~., data = cardio_train, method = "class", cp = 0, minsplit = 1000)
+perf.deep.ct.4 <- predict(deep.ct.4, newdata = cardio_valid, type = "class")
+
+#confusion matrix
+confusionMatrix(perf.deep.ct.4, cardio_valid$cardio, positive = "1")
+```
+
+
+
+```{r}
+set.seed(12)
+pruned.low.dt.4 <- prune(deep.ct.4, cp = deep.ct.4$cptable[which.min(deep.ct.4$cptable[,"xerror"]),"CP"])
+perf.low.dt.4 <- predict(pruned.low.dt.4, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.low.dt.4, cardio_valid$cardio, positive = "1")
+```
+
+```{r}
+printcp(deep.ct.4)
+```
+
+0.55202 + 0.0041051 = 0.5561251
+Tree 3 with xerror = 0.56110
+```{r}
+set.seed(13)
+pruned.best.dt.4 <- prune(deep.ct.4, cp = 0.00416001)
+perf.bestpruned.dt.4 <- predict(pruned.best.dt.4, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.bestpruned.dt.4, cardio_valid$cardio, positive = "1")
+```
+
+---
+
+Displaying the tree with the best PPV
+
+```{r}
+plot(pruned.best.dt.3, uniform = TRUE, compress = TRUE, branch = .2)
+text(pruned.best.dt.3, use.n = TRUE, cex = .8, xpd = NA)
+```
+
+Variable importance from this tree
+```{r}
+pruned.best.dt.3$variable.importance
+```
+
+Removing variables alcohol
+
+
+```{r}
+set.seed(14)
+deep.ct.4.noal <- rpart(cardio~., data = cardio_train[c(-8)], method = "class", cp = 0, minsplit = 1000)
+perf.deep.ct.4.noal <- predict(deep.ct.4.noal, newdata = cardio_valid, type = "class")
+
+#confusion matrix
+confusionMatrix(perf.deep.ct.4.noal, cardio_valid$cardio, positive = "1")
+
+```
+
+
+Accuracy: 73.31%
+PPV : 75.26%
+
+```{r}
+set.seed(15)
+pruned.low.dt.4.noal <- prune(deep.ct.4.noal, cp = deep.ct.4.noal$cptable[which.min(deep.ct.4.noal$cptable[,"xerror"]),"CP"])
+perf.low.dt.4.noal <- predict(pruned.low.dt.4.noal, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.low.dt.4.noal, cardio_valid$cardio, positive = "1")
+```
+Accuracy is decreasing.
+
+Let's display the best tree:
+
+```{r}
+prp(pruned.low.dt.2)
+```
+
+ROC curve of this tree performance
+```{r}
+library(pROC)
+rocperf <- predict(pruned.low.dt.2, cardio_valid, type = "prob")
+rocct <- roc(cardio_valid$cardio, rocperf[,2])
+plot.roc(rocct)
+pROC::auc(rocct)
+```
+
+
+```{r}
+pruned.low.dt.2$variable.importance
+```
+
+Removing alcohol variable and running models:
+```{r}
+deep.ct.2.noalco <- rpart(cardio~., data = cardio_train[,-9], method = "class", cp = 0, minsplit = 100)
+perf.deep.ct.2.noaclo <- predict(deep.ct.2.noalco, newdata = cardio_valid[,-9], type = "class")
+
+#confusion matrix
+confusionMatrix(perf.deep.ct.2.noaclo, cardio_valid$cardio, positive = "1")
+
+```
+
+Accuracy: 72.52
+Sensitivity: 69.22
+PPV: 73.50
+```{r}
+pruned.low.dt.2.noalco <- prune(deep.ct.2.noalco, cp = deep.ct.2.noalco$cptable[which.min(deep.ct.2.noalco$cptable[,"xerror"]),"CP"])
+perf.low.dt.2.noalco <- predict(pruned.low.dt.2.noalco, newdata = cardio_valid[,-9], type = "class")
+confusionMatrix(perf.low.dt.2.noalco, cardio_valid$cardio, positive = "1")
+
+```
+```{r}
+printcp(deep.ct.2.noalco)
+```
+```{r}
+deep.ct.2.noalco$cptable[which.min(deep.ct.2.noalco$cptable[,"xerror"]),"CP"]
+```
+Tree 17, 
+Best tree : 0.5469035
+Tree 9
+
+```{r}
+pruned.best.dt.2.noalco<- prune(deep.ct.2.noalco, cp = 0.000945458)
+perf.bestpruned.dt.2.noaclo <- predict(pruned.best.dt.2.noalco, newdata = cardio_valid[,-9], type = "class")
+confusionMatrix(perf.bestpruned.dt.2.noaclo, cardio_valid$cardio, positive = "1")
+```
+
+
+---
+
+RANDOM FOREST
+
+Let's perform random forest on our data set.
+
+```{r}
+set.seed(16)
+library(randomForest)
+cardio.forest <- randomForest(cardio~., data = cardio_train, importance = TRUE)
+cardio.forest
+```
+
+Check prediction performance
+
+```{r}
+perf.forest <- predict(cardio.forest, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.forest, cardio_valid$cardio, positive = "1")
+```
+
+variable importance from this random forest
+```{r}
+varImpPlot(cardio.forest)
+```
+
+Random forest with mtry = 2
+```{r}
+set.seed(17)
+cardio.forest.2 <- randomForest(cardio~., data = cardio_train,mtry = 2, importance = TRUE)
+cardio.forest.2
+```
+Checking performance
+```{r}
+perf.forest.2 <- predict(cardio.forest.2, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.forest.2, cardio_valid$cardio, positive = "1")
+```
+```{r}
+varImpPlot(cardio.forest.2)
+```
+
+Random forest with mtry = 4
+
+```{r}
+set.seed(18)
+cardio.forest.3 <- randomForest(cardio~., data = cardio_train,mtry = 4, importance = TRUE)
+cardio.forest.3
+```
+Checking performance
+```{r}
+perf.forest.3 <- predict(cardio.forest.3, newdata = cardio_valid, type = "class")
+confusionMatrix(perf.forest.3, cardio_valid$cardio, positive = "1")
+```
+```{r}
+varImpPlot(cardio.forest.3)
+```
+
+Random forest without alco variable:
+
+```{r}
+set.seed(19)
+cardio.forest.2.noalco <-  randomForest(cardio~., data = cardio_train[,-9],mtry = 2, importance = TRUE)
+perf.forest.2.noalco <- predict(cardio.forest.2.noalco, cardio_valid[,-9])
+confusionMatrix(perf.forest.2.noalco, cardio_valid$cardio, positive = "1")
+```
+
+
+----
+
+Performing Boosted Tree:
+
+```{r}
+library(adabag)
+
+set.seed(20)
+boostedtrees <- boosting(cardio~., data = cardio_train)
+perf.boosted <- predict(boostedtrees, newdata = cardio_valid, type = "class")
+confusionMatrix(as.factor(perf.boosted$class), cardio_valid$cardio, positive = "1")
+
+```
+Accuracy: 73.59%
+Positive predictive value: 75.61%
+Sensitivity: 68.57%
+
+
+
+
